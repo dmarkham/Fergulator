@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"strings"
+	"time"
 )
 
 var (
@@ -17,14 +18,14 @@ var (
 	running       = true
 	audioEnabled  = true
 
-	cpu   Cpu
-	ppu   Ppu
-	apu   Apu
-	rom   Mapper
-	video Video
-	audio Audio
-	pads  [2]*Controller
-
+	cpu            Cpu
+	ppu            Ppu
+	apu            Apu
+	rom            Mapper
+	video          Video
+	audio          Audio
+	pads           [2]*Controller
+	playEvents     chan interface{}
 	totalCpuCycles int
 
 	gamename       string
@@ -37,6 +38,8 @@ var (
 const (
 	SaveState = iota
 	LoadState
+	LearnState
+	PlayState
 )
 
 func setResetVector() {
@@ -98,6 +101,22 @@ func LoadGameState() {
 	for i, v := range state[0x5107:0x5126] {
 		ppu.PaletteRam[i] = Word(v)
 	}
+}
+
+func SaveMemState(tick int) {
+	fmt.Println("Saving state")
+	saveSize := 0x800
+
+	s := fmt.Sprintf("%s.learn", gamename)
+	fo, _ := os.OpenFile(s, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	defer fo.Close()
+	// RAM
+	fo.WriteString(fmt.Sprintf("%d\t", tick))
+	for _, v := range Ram[:saveSize] {
+		fo.WriteString(fmt.Sprintf("%d\t", v))
+	}
+	fo.WriteString("\n")
+
 }
 
 func SaveGameState() {
@@ -208,6 +227,8 @@ func main() {
 	pads[0].Init(0)
 	pads[1].Init(0)
 
+	playEvents = make(chan interface{}, 1)
+
 	Ram.Init()
 	cpu.Init()
 	v, ft := ppu.Init()
@@ -252,20 +273,31 @@ func main() {
 		var lastApuTick int
 		var cycles int
 		var flip int
+		var mems bool = false
+		saveNow := time.NewTicker(time.Millisecond * 300)
 
 		for running {
 			select {
+			case <-saveNow.C:
+				if mems {
+					SaveMemState(totalCpuCycles)
+				}
 			case s := <-c:
 				switch s {
 				case LoadState:
 					LoadGameState()
 				case SaveState:
 					SaveGameState()
+				case LearnState:
+					if mems == true {
+						mems = false
+					} else {
+						mems = true
+					}
 				}
 			default:
 				cycles = cpu.Step()
 				totalCpuCycles += cycles
-
 				for i := 0; i < 3*cycles; i++ {
 					ppu.Step()
 				}

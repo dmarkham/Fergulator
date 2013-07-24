@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/scottferg/Go-SDL/sdl"
 )
 
@@ -51,11 +52,11 @@ func (c *Controller) SetJoypadAxisState(a, d int, v Word, offset int) {
 		case JoypadAxisUp: // Up
 			resetAxis(0, index)
 			c.ButtonState[4+offset] = v
-			c.LastYAxis[index] = 4+offset
+			c.LastYAxis[index] = 4 + offset
 		case JoypadAxisDown: // Down
 			resetAxis(0, index)
 			c.ButtonState[5+offset] = v
-			c.LastYAxis[index] = 5+offset
+			c.LastYAxis[index] = 5 + offset
 		default:
 			resetAxis(0, index)
 			c.LastYAxis[index] = -1
@@ -65,11 +66,11 @@ func (c *Controller) SetJoypadAxisState(a, d int, v Word, offset int) {
 		case JoypadAxisLeft: // Left
 			resetAxis(1, index)
 			c.ButtonState[6+offset] = v
-			c.LastXAxis[index] = 6+offset
+			c.LastXAxis[index] = 6 + offset
 		case JoypadAxisRight: // Right
 			resetAxis(1, index)
 			c.ButtonState[7+offset] = v
-			c.LastXAxis[index] = 7+offset
+			c.LastXAxis[index] = 7 + offset
 		default:
 			resetAxis(1, index)
 			c.LastXAxis[index] = -1
@@ -175,104 +176,124 @@ func (c *Controller) Init(offset int) {
 
 func ReadInput(r chan [2]int, i chan int) {
 	for {
+
 		select {
+		case ev := <-playEvents:
+			fmt.Println(ev)
+			foo(r, i, ev)
 		case ev := <-sdl.Events:
-			switch e := ev.(type) {
-			case sdl.ResizeEvent:
-				r <- [2]int{int(e.W), int(e.H)}
-			case sdl.QuitEvent:
-				running = false
-				video.Close()
-			case sdl.JoyAxisEvent:
-				j := int(e.Which)
+			fmt.Println(ev)
+			foo(r, i, ev)
+		}
+	}
+}
 
-				index := j
-				var offset int
-				if j > 1 {
-					offset = 8
-					index = j % 2
-				}
+func foo(r chan [2]int, i chan int, ev interface{}) {
+	switch e := ev.(type) {
+	case sdl.ResizeEvent:
+		r <- [2]int{int(e.W), int(e.H)}
+	case sdl.QuitEvent:
+		running = false
+		video.Close()
+	case sdl.JoyAxisEvent:
+		j := int(e.Which)
 
-				switch e.Value {
-				// Same values for left/right
-				case JoypadAxisUp:
-					fallthrough
-				case JoypadAxisDown:
-					pads[index].AxisDown(int(e.Axis), int(e.Value), offset)
-				default:
-					pads[index].AxisUp(int(e.Axis), int(e.Value), offset)
-				}
-			case sdl.JoyButtonEvent:
-				j := int(e.Which)
+		index := j
+		var offset int
+		if j > 1 {
+			offset = 8
+			index = j % 2
+		}
 
-				index := j
-				var offset int
-				if j > 1 {
-					offset = 8
-					index = j % 2
-				}
+		switch e.Value {
+		// Same values for left/right
+		case JoypadAxisUp:
+			fallthrough
+		case JoypadAxisDown:
+			pads[index].AxisDown(int(e.Axis), int(e.Value), offset)
+		default:
+			pads[index].AxisUp(int(e.Axis), int(e.Value), offset)
+		}
+	case sdl.JoyButtonEvent:
+		j := int(e.Which)
 
-				switch joy[j].GetButton(int(e.Button)) {
-				case 1:
-					pads[index].ButtonDown(int(e.Button), offset)
-				case 0:
-					pads[index].ButtonUp(int(e.Button), offset)
-				}
-			case sdl.KeyboardEvent:
-				switch e.Keysym.Sym {
-				case sdl.K_ESCAPE:
-					running = false
-				case sdl.K_r:
-					// Trigger reset interrupt
-					if e.Type == sdl.KEYDOWN {
-						cpu.RequestInterrupt(InterruptReset)
-					}
-				case sdl.K_l:
-					if e.Type == sdl.KEYDOWN {
-						i <- LoadState
-					}
-				case sdl.K_p:
-					if e.Type == sdl.KEYDOWN {
-						// Enable/disable scanline sprite limiter flag
-						ppu.SpriteLimitEnabled = !ppu.SpriteLimitEnabled
-					}
-				case sdl.K_s:
-					if e.Type == sdl.KEYDOWN {
-						i <- SaveState
-					}
-				case sdl.K_o:
-					if e.Type == sdl.KEYDOWN {
-						ppu.OverscanEnabled = !ppu.OverscanEnabled
-					}
-				case sdl.K_i:
-					if e.Type == sdl.KEYDOWN {
-						audioEnabled = !audioEnabled
-					}
-				case sdl.K_1:
-					if e.Type == sdl.KEYDOWN {
-						r <- [2]int{256, 240}
-					}
-				case sdl.K_2:
-					if e.Type == sdl.KEYDOWN {
-						r <- [2]int{512, 480}
-					}
-				case sdl.K_3:
-					if e.Type == sdl.KEYDOWN {
-						r <- [2]int{768, 720}
-					}
-				case sdl.K_4:
-					if e.Type == sdl.KEYDOWN {
-						r <- [2]int{1024, 960}
-					}
-				}
+		index := j
+		var offset int
+		if j > 1 {
+			offset = 8
+			index = j % 2
+		}
 
-				switch e.Type {
-				case sdl.KEYDOWN:
-					pads[0].KeyDown(e, 0)
-				case sdl.KEYUP:
-					pads[0].KeyUp(e, 0)
-				}
+		switch joy[j].GetButton(int(e.Button)) {
+		case 1:
+			pads[index].ButtonDown(int(e.Button), offset)
+		case 0:
+			pads[index].ButtonUp(int(e.Button), offset)
+		}
+	case sdl.KeyboardEvent:
+		//fmt.Println(ev)
+
+		switch e.Keysym.Sym {
+		case sdl.K_ESCAPE:
+			running = false
+		case sdl.K_r:
+			// Trigger reset interrupt
+			if e.Type == sdl.KEYDOWN {
+				cpu.RequestInterrupt(InterruptReset)
 			}
+		case sdl.K_l:
+			if e.Type == sdl.KEYDOWN {
+				i <- LoadState
+			}
+		case sdl.K_m:
+			if e.Type == sdl.KEYDOWN {
+				i <- LearnState
+			}
+		case sdl.K_p:
+			if e.Type == sdl.KEYDOWN {
+				i <- PlayState
+				pressA()
+			}
+		//case sdl.K_p:
+		//	if e.Type == sdl.KEYDOWN {
+		//		// Enable/disable scanline sprite limiter flag
+		//		ppu.SpriteLimitEnabled = !ppu.SpriteLimitEnabled
+		//	}
+		case sdl.K_s:
+			if e.Type == sdl.KEYDOWN {
+				i <- SaveState
+			}
+		case sdl.K_o:
+			if e.Type == sdl.KEYDOWN {
+				ppu.OverscanEnabled = !ppu.OverscanEnabled
+			}
+		case sdl.K_i:
+			if e.Type == sdl.KEYDOWN {
+				audioEnabled = !audioEnabled
+			}
+		case sdl.K_1:
+			if e.Type == sdl.KEYDOWN {
+				r <- [2]int{256, 240}
+			}
+		case sdl.K_2:
+			if e.Type == sdl.KEYDOWN {
+				r <- [2]int{512, 480}
+			}
+		case sdl.K_3:
+			if e.Type == sdl.KEYDOWN {
+				r <- [2]int{768, 720}
+			}
+		case sdl.K_4:
+			if e.Type == sdl.KEYDOWN {
+				r <- [2]int{1024, 960}
+			}
+		}
+
+		switch e.Type {
+		case sdl.KEYDOWN:
+			pads[0].KeyDown(e, 0)
+		case sdl.KEYUP:
+			pads[0].KeyUp(e, 0)
 		}
 	}
 }

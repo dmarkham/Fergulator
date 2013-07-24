@@ -124,7 +124,6 @@ func (v *Video) Render() {
 				slice[i*3+1] = (uint8)((val[i] >> 8) & 0xff)
 				slice[i*3+2] = (uint8)((val[i]) & 0xff)
 			}
-
 			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 			v.tex.Bind(gl.TEXTURE_2D)
